@@ -86,7 +86,7 @@ function addWords(el) {
     }
     
     function wordsToSpans(textEl) {
-        $(textEl.parentNode).replaceText(/(.)/g, "<span class='bird' onclick='off = $(this).offset();$(this).attr(\"ox\", off.left);$(this).attr(\"oy\", off.top);'>$1</span>");
+        $(textEl.parentNode).replaceText(/(\S)/g, "<span class='bird' onclick='off = $(this).offset();$(this).attr(\"ox\", off.left);$(this).attr(\"oy\", off.top);'>$1</span>");
     }
     buildTextEls(el, shouldAddChildren(el));
     textEls.map(wordsToSpans);

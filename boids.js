@@ -96,6 +96,7 @@ function addWords(el) {
 var boids = {
     MAX_BIRDS: 100,
     birds: [],
+    birdsReturning: [],
     px: function(x) { return [x, 'px'].join(''); },
     calcVelocity: function(j, J, cJ, dJ, vJ, mouse_j, B) {
         // Flock center
@@ -132,7 +133,6 @@ var boids = {
                     elem: $(this).clone().appendTo('body'),
                     orig_elem: $(this)
                 }
-
                 $(this).removeClass('bird');
             } else { return; }
         });
@@ -146,48 +146,9 @@ var boids = {
             // hide original
             this.birds[i].orig_elem.css({ visibility: 'hidden' });
         }
-    }
-}
-
-$(document).ready(function() {
-    $('p').click(function(event) {
-      $('.bird').removeClass('bird');
-      console.log('calling addWords');
-      $(this).unbind(event);
-      addWords(this);
-      boids.makeBoids();
-    });
-
-    // b: settings array:
-    // #  inc dec meaning
-    // 0: B   C   Grass height
-    // 1: D   E   Maximum velocity
-    // 2: F   G   Minimum distance 
-    // 3: H   I   Flock center "gravity"
-    // 4: J   K   Goal (mouse) "gravity"
-    // 5: L   M   Obstacle size
-    // 6: N   O   Perching time
-    // 7: P   Q   Boid line of sight
-    //   0    1  2  3    4    5  6   7
-    b = [7000, 5, 81, 1E5, 1E3, 9, 99, 3600];
-
-    d = Math.abs;
-    pow = Math.pow;
-    minSize = 9;
-    maxSize = 50;
-    mouse_x = 100, mouse_y = 100;
- 
-    $('body').mousemove(function(e) {
-        mouse_x = e.pageX;
-        mouse_y = e.pageY;
-    });
-
-    num_birds = 0;
-
-    setInterval(function() {
-        num_birds = boids.birds.length;
-
-        for (i = 0; i < num_birds; i++) {
+    },
+    swarm: function() {
+        for (i = 0; i < boids.birds.length; i++) {
             A = boids.birds[i];
             with (A) {
                 // Calculate boid movement
@@ -202,7 +163,7 @@ $(document).ready(function() {
                 // vX: avg velocity X
                 // vY: avg velocity Y
                 // vZ: avg velocity Z
-               // S: other boid
+                // S: other boid
                 // Initialize obstacle draw value at increment
                 for (B = K = cX = cY = cZ = dX = dY = dZ = vX = vY = vZ = 0;
                     S = boids.birds[K++];) {
@@ -281,5 +242,83 @@ $(document).ready(function() {
 
             } // End of with(A)
         }
-    }, 50);
+    },
+    returnHome: function() {
+        //$('.bird').addClass('bird-home');
+        boids.birdsReturning = boids.birds.slice();
+        $('.bird').removeClass('bird');
+        setTimeout(boids.goHome, 50);
+    },
+    goHome: function() {
+        var i = 0;
+        epsilon = 1E-2;
+        for (; i < boids.birdsReturning.length; i++) {
+            A = boids.birdsReturning[i];
+            with (A) {
+                ox = parseFloat(orig_elem.attr('ox'));
+                oy = parseFloat(orig_elem.attr('oy'));
+                oz = parseFloat(orig_elem.css('font-size'));
+                if (d(ox - x) + d(oy - y) + d(oz -z) < epsilon) {
+                     x = ox;
+                     y = oy;
+                     z = oz;
+                     boids.birdsReturning.splice(1, i);
+                } else {
+                    ((x > ox) && (x -= d(X))) || (x < ox && (x += d(X)));
+                    ((y > oy) && (y -= d(Y))) || (y < oy && (y += d(Y)));
+                    ((z > oz) && (z -= d(Z))) || (z < oz && (z += d(Z)));
+                    X = d(ox - x) / 2;
+                    Y = d(oy - y) / 2;
+                    Z = d(oz - z) / 2;
+                }
+                elem.css({
+                    position: "absolute",
+                    left: x,
+                    top: y,
+                    'font-size': boids.px(z)
+                });
+            }
+        }
+        if (boids.birdsReturning.length > 0)
+            setTimeout(boids.goHome, 50);
+    },
+    landAndFlyBoids: function(event) {
+        boids.returnHome($(this));
+        console.log('calling addWords');
+        $(this).unbind(event);
+        addWords(this);
+        boids.makeBoids();
+        $(this).click(boids.landAndFlyBoids);
+    }
+}
+ 
+
+$(document).ready(function() {
+    $('p').click(boids.landAndFlyBoids)
+
+    // b: settings array:
+    // #  inc dec meaning
+    // 0: B   C   Grass height
+    // 1: D   E   Maximum velocity
+    // 2: F   G   Minimum distance 
+    // 3: H   I   Flock center "gravity"
+    // 4: J   K   Goal (mouse) "gravity"
+    // 5: L   M   Obstacle size
+    // 6: N   O   Perching time
+    // 7: P   Q   Boid line of sight
+    //   0    1  2  3    4    5  6   7
+    b = [7000, 5, 81, 1E5, 1E3, 9, 99, 3600];
+
+    d = Math.abs;
+    pow = Math.pow;
+    minSize = 9;
+    maxSize = 50;
+    mouse_x = 100, mouse_y = 100;
+ 
+    $('body').mousemove(function(e) {
+        mouse_x = e.pageX;
+        mouse_y = e.pageY;
+    });
+
+    setInterval(boids.swarm, 50);
 });

@@ -1,3 +1,4 @@
+// http://benalman.com/projects/jquery-replacetext-plugin/
 (function($){
 $.fn.replaceText = function( search, replace, text_only ) {
     return this.each(function(){
@@ -51,6 +52,7 @@ $.fn.replaceText = function( search, replace, text_only ) {
   
 })(jQuery);
 
+// liberated from katamari ball src
 REPLACE_WORDS_IN = {
             a: 1, b: 1, big: 1, body: 1, cite:1, code: 1, dd: 1, div: 1,
             dt: 1, em: 1, font: 1, h1: 1, h2: 1, h3: 1, h4: 1, h5: 1, h6: 1,
@@ -62,7 +64,7 @@ function shouldAddChildren(el) {
     return el.tagName && REPLACE_WORDS_IN[el.tagName.toLowerCase()];
 }
 
-function addWords(el) {
+function addLetters(el) {
     var textEls = [];
     
     function shouldAddChildren(el) {
@@ -85,13 +87,14 @@ function addWords(el) {
         }
     }
     
-    function wordsToSpans(textEl) {
+    function lettersToSpans(textEl) {
         $(textEl.parentNode).replaceText(/(\S)/g, "<span class='letter' onclick='var event = arguments[0];event.stopPropagation();off = $(this).offset();$(this).attr(\"ox\", off.left);$(this).attr(\"oy\", off.top);'>$1</span>");
     }
     buildTextEls(el, shouldAddChildren(el));
-    textEls.map(wordsToSpans);
+    textEls.map(lettersToSpans);
 }
 
+// Relies heavily on js1k entry by Lauri Paimen: http://lauri.paimen.info/pub/dev/boids/
 var boids = {
     MAX_BIRDS: 100,
     birds: [],
@@ -114,6 +117,10 @@ var boids = {
         ox = parseFloat(span.attr('ox'));
         oy = parseFloat(span.attr('oy'));
         oz = parseFloat(span.css('font-size'));
+
+        if (maxSize < oz) maxSize = oz+3;
+        if (minSize >= oz) minSize = oz-3;
+
         // Break symmetry
         oz += Math.random() - 0.5;
 
@@ -141,51 +148,12 @@ var boids = {
 
         boids.birds.push(bird);
         span.css({visibility: 'hidden'});
-        console.log("made bird " + bird);
     },
 
-    makeBoids: function() {
-        var i = 0;
-        $(".bird").each(function() {
-            if (i < boids.MAX_BIRDS) {
-                $(this).click();
-                while ($(this).attr('ox') == undefined && $(this).attr('oy') == undefined) {};
-                ox = parseFloat($(this).attr('ox'));
-                oy = parseFloat($(this).attr('oy'));
-                oz = parseFloat($(this).css('font-size'));
-                // Break symmetry
-                oz += Math.random() - 0.5;
-
-                boids.birds[i++] = {
-                    ox: ox,
-                    oy: oy,
-                    oz: oz,
-                    x: ox,
-                    y: oy,
-                    z: oz,
-                    X: 0,
-                    Y: 0,
-                    Z: 0,
-                    w: 0,
-                    W: 0,
-                    elem: $(this).clone().appendTo('body'),
-                    orig_elem: $(this)
-                }
-                $(this).removeClass('bird');
-            } else { return; }
-        });
-        console.log("going to reposition");
-        for (i = 0; i < this.birds.length; i++) {
-            this.birds[i].elem.css({
-              position: "absolute",
-              left: this.birds[i].x,
-              top: this.birds[i].y,
-            });
-            // hide original
-            this.birds[i].orig_elem.css({ visibility: 'hidden' });
-        }
-    },
     swarm: function() {
+        var absX, absY, absZ;
+        var  x_minus_Sx, y_minus_Sy, z_minus_Sz;
+
         for (i = 0; i < boids.birds.length; i++) {
             A = boids.birds[i];
             with (A) {
@@ -210,7 +178,11 @@ var boids = {
                     // Count line-of-sight items
                     // Tight swarm with below, hard to perceive size spread
                     //(A = pow(x-S.x, 2) + pow(y-S.y, 2) + pow(z-S.z, 2)) 
-                    (A = pow(x-S.x, 2) + pow(y-S.y, 2)) < b[7] && (
+                    x_minus_Sx = x-S.x;
+                    y_minus_Sy = y-S.y;
+                    z_minus_Sz = z-S.z;
+
+                    (A = x_minus_Sx*x_minus_Sx + y_minus_Sy*y_minus_Sy) < b[7] && (
                         B++,
                         cX += S.x,
                         cY += S.y,
@@ -224,9 +196,9 @@ var boids = {
                     // I forgot what the "feature" is, sorry. Something useful,
                     // I guess.
                     A < S.W * 3 * b[5] + b[2] && (
-                        dX -= S.x - x,
-                        dY -= S.y - y,
-                        dZ -= S.z - z
+                        dX += x_minus_Sx,
+                        dY += y_minus_Sy,
+                        dZ += z_minus_Sz
                     )
                 }
 
@@ -250,23 +222,23 @@ var boids = {
                 // speed limiter
                 // C: Shortcut for max speed setting
                 C = b[1];
-                X /= d(X) > C ? d(X) / C : 1;
-                Y /= d(Y) > C ? d(Y) / C : 1;
-                Z /= d(Z) > C ? d(Z) / C : 1;
+                absX = Math.abs(X);
+                absY = Math.abs(Y);
+                absZ = Math.abs(Z);
+                X /= absX > C ? absX / C : 1;
+                Y /= absY > C ? absY / C : 1;
+                Z /= absZ > C ? absZ / C : 1;
 
                 // Move and draw item
-                // fillStyle is #888 set for obstacle already
-                // strokeStyle will be red for boid
                 x += X;
                 y += Y;
 
-                // min font-size of 5, max font-size of 32
                 if (z < minSize && Z < 0) Z = -Z;
                 if (z > maxSize && Z > 0) Z = -Z;
                 z += Z;
 
-                if (x < 0  || x > window.innerWidth - 1 || y < 0 ||
-                      y > window.innerHeight -1) { 
+                // bounce off walls
+                if (x < 0  || x > window.innerWidth - 1 || y < 0 || y > window.innerHeight -1) { 
                     X = -X;
                     Y = -Y;
                 }
@@ -282,15 +254,15 @@ var boids = {
         }
     },
     goHome: function() {
-        console.log("go Home");
         var birds = boids.birds.slice();
-        boids.birds = [];
-        epsilon = 1.5;
+        var epsilon = 1.5;
         var num_returned = 0;
-        var interval_period = 50; // ms
-        var t_slices = 20;  // fewer slices == faster birds
+        var interval_period = 50;       // update interval in ms
+        var t_slices = 20;              // fewer slices == faster birds
         var t_delta = 1.0  / t_slices;
         var t = 0;
+
+        boids.birds = [];
 
         for (var i=0; i < birds.length; i++) {
             birds[i].start_x = birds[i].x;
@@ -298,6 +270,7 @@ var boids = {
             birds[i].start_z = birds[i].z;
         }
 
+        var _1_minus_t;
         var interval = setInterval(function() {
             if (num_returned == birds.length) {
                 clearInterval(interval);
@@ -317,9 +290,10 @@ var boids = {
                          z = oz;
                          ++num_returned;
                     } else {
-                        x = start_x*(1.0 - t) + ox*t - 1 + 2*Math.random();
-                        y = start_y*(1.0 - t) + oy*t - 1 + 2*Math.random();
-                        z = start_z*(1.0 - t) + oz*t - 1 + 2*Math.random();
+                        _1_minus_t = 1.0 -t;
+                        x = start_x*(_1_minus_t) + ox*t - 1 + 2*Math.random();
+                        y = start_y*(_1_minus_t) + oy*t - 1 + 2*Math.random();
+                        z = start_z*(_1_minus_t) + oz*t - 1 + 2*Math.random();
                     }
                     elem.css({
                         position: "absolute",
@@ -333,28 +307,17 @@ var boids = {
             if (t > 1.0) t = 1.0;
         }, interval_period);
     },
-    landAndFlyBoids: function(event) {
-        //boids.returnHome($(this));
-        console.log('calling addWords');
-        $(this).unbind(event);
-        addWords(this);
-        boids.makeBoids();
-        $(this).click(boids.landAndFlyBoids);
-    }
 }
  
-
 $(document).ready(function() {
-  //  $('p').click(boids.landAndFlyBoids)
     var interval = null;
 
-    addWords(document.body);
+    addLetters(document.body);
     $('.letter').mouseover(function() {
         boids.makeBoid($(this));
         if (boids.birds.length == 1)
             interval = setInterval(boids.swarm, 50);
     });
-
 
     // b: settings array:
     // #  inc dec meaning
@@ -369,8 +332,6 @@ $(document).ready(function() {
     //   0    1  2  3    4    5  6   7
     b = [7000, 5, 81, 1E5, 1E3, 9, 99, 3600];
 
-    d = Math.abs;
-    pow = Math.pow;
     minSize = 9;
     maxSize = 12;
     mouse_x = 100, mouse_y = 100;
@@ -380,11 +341,8 @@ $(document).ready(function() {
         mouse_y = e.pageY;
     });
 
-    //interval = setInterval(boids.swarm, 50);
-
     $('body, #go-home-btn').click(function() {
         if (boids.birds.length > 0) {
-          console.log("go home btn clicked");
           clearInterval(interval);
           boids.goHome();
         }

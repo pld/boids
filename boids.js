@@ -86,7 +86,7 @@ function addWords(el) {
     }
     
     function wordsToSpans(textEl) {
-        $(textEl.parentNode).replaceText(/(\S)/g, "<span class='letter' onclick='off = $(this).offset();$(this).attr(\"ox\", off.left);$(this).attr(\"oy\", off.top);'>$1</span>");
+        $(textEl.parentNode).replaceText(/(\S)/g, "<span class='letter' onclick='var event = arguments[0];event.stopPropagation();off = $(this).offset();$(this).attr(\"ox\", off.left);$(this).attr(\"oy\", off.top);'>$1</span>");
     }
     buildTextEls(el, shouldAddChildren(el));
     textEls.map(wordsToSpans);
@@ -281,14 +281,10 @@ var boids = {
             } // End of with(A)
         }
     },
-    returnHome: function() {
-        //$('.bird').addClass('bird-home');
-        //boids.birdsReturning = boids.birds.slice();
-        //$('.bird').removeClass('bird');
-        //setTimeout(boids.goHome, 50);
-    },
     goHome: function() {
         console.log("go Home");
+        var birds = boids.birds.slice();
+        boids.birds = [];
         epsilon = 1.5;
         var num_returned = 0;
         var interval_period = 50; // ms
@@ -296,20 +292,20 @@ var boids = {
         var t_delta = 1.0  / t_slices;
         var t = 0;
 
-        for (var i=0; i < boids.birds.length; i++) {
-            boids.birds[i].start_x = boids.birds[i].x;
-            boids.birds[i].start_y = boids.birds[i].y;
-            boids.birds[i].start_z = boids.birds[i].z;
+        for (var i=0; i < birds.length; i++) {
+            birds[i].start_x = birds[i].x;
+            birds[i].start_y = birds[i].y;
+            birds[i].start_z = birds[i].z;
         }
 
         var interval = setInterval(function() {
-            if (num_returned == boids.birds.length) {
+            if (num_returned == birds.length) {
                 clearInterval(interval);
                 return;
             }
 
-            for (var i=0; i < boids.birds.length; i++) {
-                A = boids.birds[i];
+            for (var i=0; i < birds.length; i++) {
+                A = birds[i];
                 with (A) {
                     dx = ox - x;
                     dy = oy - y;
@@ -386,9 +382,11 @@ $(document).ready(function() {
 
     //interval = setInterval(boids.swarm, 50);
 
-    $('#go-home-btn').click(function() {
-        console.log("go home btn clicked");
-        clearInterval(interval);
-        boids.goHome();
+    $('body, #go-home-btn').click(function() {
+        if (boids.birds.length > 0) {
+          console.log("go home btn clicked");
+          clearInterval(interval);
+          boids.goHome();
+        }
     });
 });

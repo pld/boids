@@ -1,3 +1,7 @@
+
+
+var interval = null;
+
 // http://benalman.com/projects/jquery-replacetext-plugin/
 (function($){
 $.fn.replaceText = function( search, replace, text_only ) {
@@ -88,7 +92,7 @@ function addLetters(el) {
     }
     
     function lettersToSpans(textEl) {
-        $(textEl.parentNode).replaceText(/(\S)/g, "<span class='letter' onclick='var event = arguments[0];event.stopPropagation();off = $(this).offset();$(this).attr(\"ox\", off.left);$(this).attr(\"oy\", off.top);'>$1</span>");
+        $(textEl.parentNode).replaceText(/(\S)/g, "<span class='letter' onclick='var event = arguments[0];event.stopPropagation(); off = $(this).offset();$(this).attr(\"ox\", off.left);$(this).attr(\"oy\", off.top);'>$1</span>");
     }
     buildTextEls(el, shouldAddChildren(el));
     textEls.map(lettersToSpans);
@@ -112,8 +116,11 @@ var boids = {
         return v;
     },
     makeBoid: function(span) {
-        span.click();
-        while (span.attr('ox') == undefined && span.attr('oy') == undefined) {};
+        console.log("makeBoid");
+        if (span.attr('ox') == undefined && span.attr('oy') == undefined) 
+            span.click();
+            while (span.attr('ox') == undefined && span.attr('oy') == undefined) {};
+
         ox = parseFloat(span.attr('ox'));
         oy = parseFloat(span.attr('oy'));
         oz = parseFloat(span.css('font-size'));
@@ -141,13 +148,22 @@ var boids = {
         };
 
         bird.elem.css({ 
+            visibility: 'visible',
             position: "absolute",
             left: bird.x,
             top: bird.y,
         });
 
+        bird.elem.unbind('mouseover');
+
+        /*
+        console.log("makeBoid: hiding span");
+        console.log(span.attr('style'));
+        span.css({visibility : 'hidden'});
+        console.log(span.attr('style'));
+        */
+
         boids.birds.push(bird);
-        span.css({visibility: 'hidden'});
     },
 
     swarm: function() {
@@ -254,8 +270,8 @@ var boids = {
         }
     },
     goHome: function() {
-        var birds = boids.birds.slice();
-        var epsilon = 1.5;
+        var birds = boids.birds.slice(0);
+        var epsilon = 4;
         var num_returned = 0;
         var interval_period = 50;       // update interval in ms
         var t_slices = 20;              // fewer slices == faster birds
@@ -271,9 +287,9 @@ var boids = {
         }
 
         var _1_minus_t;
-        var interval = setInterval(function() {
+        var go_home_interval = setInterval(function() {
             if (num_returned == birds.length) {
-                clearInterval(interval);
+                clearInterval(go_home_interval);
                 return;
             }
 
@@ -288,19 +304,28 @@ var boids = {
                          x = ox;
                          y = oy;
                          z = oz;
+                         X = 0;
+                         Y = 0;
+                         Z = 0;
+                         w = 0;
+                         W = 0;
+                        
+                         elem.remove();
+                         orig_elem.css({visibility: 'visible'});
+
                          ++num_returned;
                     } else {
                         _1_minus_t = 1.0 -t;
                         x = start_x*(_1_minus_t) + ox*t - 1 + 2*Math.random();
                         y = start_y*(_1_minus_t) + oy*t - 1 + 2*Math.random();
                         z = start_z*(_1_minus_t) + oz*t - 1 + 2*Math.random();
+                        elem.css({
+                            position: "absolute",
+                            left: x,
+                            top: y,
+                            'font-size': boids.px(z)
+                        });
                     }
-                    elem.css({
-                        position: "absolute",
-                        left: x,
-                        top: y,
-                        'font-size': boids.px(z)
-                    });
                 }
             }
             t += t_delta;
@@ -308,12 +333,13 @@ var boids = {
         }, interval_period);
     },
 }
- 
-$(document).ready(function() {
-    var interval = null;
 
+$(document).ready(function() {
     addLetters(document.body);
+    
     $('.letter').mouseover(function() {
+        console.log("handle mouseover");
+        $(this).css({ visibility: 'hidden' });
         boids.makeBoid($(this));
         if (boids.birds.length == 1)
             interval = setInterval(boids.swarm, 50);
@@ -343,8 +369,8 @@ $(document).ready(function() {
 
     $('body, #go-home-btn').click(function() {
         if (boids.birds.length > 0) {
-          clearInterval(interval);
-          boids.goHome();
+            clearInterval(interval);
+            boids.goHome();
         }
     });
 });

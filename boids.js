@@ -86,12 +86,11 @@ function addWords(el) {
     }
     
     function wordsToSpans(textEl) {
-        $(textEl.parentNode).replaceText(/(\S)/g, "<span class='bird' onclick='off = $(this).offset();$(this).attr(\"ox\", off.left);$(this).attr(\"oy\", off.top);'>$1</span>");
+        $(textEl.parentNode).replaceText(/(\S)/g, "<span class='letter' onclick='var event = arguments[0];event.stopPropagation();off = $(this).offset();$(this).attr(\"ox\", off.left);$(this).attr(\"oy\", off.top);'>$1</span>");
     }
     buildTextEls(el, shouldAddChildren(el));
     textEls.map(wordsToSpans);
 }
-
 
 var boids = {
     MAX_BIRDS: 100,
@@ -109,6 +108,42 @@ var boids = {
             + (mouse_j - j) / b[4];
         return v;
     },
+    makeBoid: function(span) {
+        span.click();
+        while (span.attr('ox') == undefined && span.attr('oy') == undefined) {};
+        ox = parseFloat(span.attr('ox'));
+        oy = parseFloat(span.attr('oy'));
+        oz = parseFloat(span.css('font-size'));
+        // Break symmetry
+        oz += Math.random() - 0.5;
+
+        bird = {
+            ox: ox,
+            oy: oy,
+            oz: oz,
+            x: ox,
+            y: oy,
+            z: oz,
+            X: 0,
+            Y: 0,
+            Z: 0,
+            w: 0,
+            W: 0,
+            elem: span.clone().appendTo('body'),
+            orig_elem: span
+        };
+
+        bird.elem.css({ 
+            position: "absolute",
+            left: bird.x,
+            top: bird.y,
+        });
+
+        boids.birds.push(bird);
+        span.css({visibility: 'hidden'});
+        console.log("made bird " + bird);
+    },
+
     makeBoids: function() {
         var i = 0;
         $(".bird").each(function() {
@@ -122,6 +157,9 @@ var boids = {
                 oz += Math.random() - 0.5;
 
                 boids.birds[i++] = {
+                    ox: ox,
+                    oy: oy,
+                    oz: oz,
                     x: ox,
                     y: oy,
                     z: oz,
@@ -243,47 +281,60 @@ var boids = {
             } // End of with(A)
         }
     },
-    returnHome: function() {
-        //$('.bird').addClass('bird-home');
-        boids.birdsReturning = boids.birds.slice();
-        $('.bird').removeClass('bird');
-        setTimeout(boids.goHome, 50);
-    },
     goHome: function() {
-        var i = 0;
-        epsilon = 1E-2;
-        for (; i < boids.birdsReturning.length; i++) {
-            A = boids.birdsReturning[i];
-            with (A) {
-                ox = parseFloat(orig_elem.attr('ox'));
-                oy = parseFloat(orig_elem.attr('oy'));
-                oz = parseFloat(orig_elem.css('font-size'));
-                if (d(ox - x) + d(oy - y) + d(oz -z) < epsilon) {
-                     x = ox;
-                     y = oy;
-                     z = oz;
-                     boids.birdsReturning.splice(1, i);
-                } else {
-                    ((x > ox) && (x -= d(X))) || (x < ox && (x += d(X)));
-                    ((y > oy) && (y -= d(Y))) || (y < oy && (y += d(Y)));
-                    ((z > oz) && (z -= d(Z))) || (z < oz && (z += d(Z)));
-                    X = d(ox - x) / 2;
-                    Y = d(oy - y) / 2;
-                    Z = d(oz - z) / 2;
-                }
-                elem.css({
-                    position: "absolute",
-                    left: x,
-                    top: y,
-                    'font-size': boids.px(z)
-                });
-            }
+        console.log("go Home");
+        var birds = boids.birds.slice();
+        boids.birds = [];
+        epsilon = 1.5;
+        var num_returned = 0;
+        var interval_period = 50; // ms
+        var t_slices = 20;  // fewer slices == faster birds
+        var t_delta = 1.0  / t_slices;
+        var t = 0;
+
+        for (var i=0; i < birds.length; i++) {
+            birds[i].start_x = birds[i].x;
+            birds[i].start_y = birds[i].y;
+            birds[i].start_z = birds[i].z;
         }
-        if (boids.birdsReturning.length > 0)
-            setTimeout(boids.goHome, 50);
+
+        var interval = setInterval(function() {
+            if (num_returned == birds.length) {
+                clearInterval(interval);
+                return;
+            }
+
+            for (var i=0; i < birds.length; i++) {
+                A = birds[i];
+                with (A) {
+                    dx = ox - x;
+                    dy = oy - y;
+                    dz = oz - z;
+
+                    if (Math.abs(dx) + Math.abs(dy) + Math.abs(dz) < epsilon) {
+                         x = ox;
+                         y = oy;
+                         z = oz;
+                         ++num_returned;
+                    } else {
+                        x = start_x*(1.0 - t) + ox*t - 1 + 2*Math.random();
+                        y = start_y*(1.0 - t) + oy*t - 1 + 2*Math.random();
+                        z = start_z*(1.0 - t) + oz*t - 1 + 2*Math.random();
+                    }
+                    elem.css({
+                        position: "absolute",
+                        left: x,
+                        top: y,
+                        'font-size': boids.px(z)
+                    });
+                }
+            }
+            t += t_delta;
+            if (t > 1.0) t = 1.0;
+        }, interval_period);
     },
     landAndFlyBoids: function(event) {
-        boids.returnHome($(this));
+        //boids.returnHome($(this));
         console.log('calling addWords');
         $(this).unbind(event);
         addWords(this);
@@ -294,7 +345,16 @@ var boids = {
  
 
 $(document).ready(function() {
-    $('p').click(boids.landAndFlyBoids)
+  //  $('p').click(boids.landAndFlyBoids)
+    var interval = null;
+
+    addWords(document.body);
+    $('.letter').mouseover(function() {
+        boids.makeBoid($(this));
+        if (boids.birds.length == 1)
+            interval = setInterval(boids.swarm, 50);
+    });
+
 
     // b: settings array:
     // #  inc dec meaning
@@ -312,7 +372,7 @@ $(document).ready(function() {
     d = Math.abs;
     pow = Math.pow;
     minSize = 9;
-    maxSize = 50;
+    maxSize = 12;
     mouse_x = 100, mouse_y = 100;
  
     $('body').mousemove(function(e) {
@@ -320,5 +380,13 @@ $(document).ready(function() {
         mouse_y = e.pageY;
     });
 
-    setInterval(boids.swarm, 50);
+    //interval = setInterval(boids.swarm, 50);
+
+    $('body, #go-home-btn').click(function() {
+        if (boids.birds.length > 0) {
+          console.log("go home btn clicked");
+          clearInterval(interval);
+          boids.goHome();
+        }
+    });
 });
